@@ -1,0 +1,41 @@
+{
+  "name": "zenrez-apicache",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "jest --verbose --forceExit --detectOpenHandles"
+  },
+  "engines": {
+    "node": ">=8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zenrez/zenrez-apicache.git"
+  },
+  "author": "Oswaldo Avalos",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Zenrez/zenrez-apicache/issues"
+  },
+  "homepage": "https://github.com/Zenrez/zenrez-apicache#readme",
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/ioredis": "^4.0.13",
+    "@types/jest": "^24.0.15",
+    "@types/node": "^12.6.8",
+    "express": "^4.17.1",
+    "ioredis": "^4.11.2",
+    "jest": "^24.8.0",
+    "supertest": "^4.0.2",
+    "ts-jest": "^24.0.2",
+    "tslint": "^5.18.0",
+    "typescript": "^3.5.3"
+  },
+  "dependencies": {
+    "dataloader": "^1.4.0"
+  },
+  "peerDependencies": {
+    "ioredis": "4.x"
+  }
+}
