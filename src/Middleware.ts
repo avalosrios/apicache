@@ -2,7 +2,6 @@ import {
     NextFunction,
     Request,
     Response,
-    Send,
 } from 'express';
 import {
     IMiddlewareOptions, IMiddlewareResponse,
@@ -11,7 +10,11 @@ import {
     ITransformDuration,
 } from './common/types';
 import { RedisCache } from './RedisCache';
+import { MemoryCache } from './MemoryCache';
 import { ServerCache } from './ServerCache';
+import  moment from 'moment';
+
+export type MiddlewareCache = (req: Request, res: Response, next: NextFunction) => Promise<void | Response>;
 
 export class Middleware {
     public serverCache: ServerCache;
@@ -35,15 +38,23 @@ export class Middleware {
         localOptions?: IMiddlewareOptions,
     ) {
         this.duration = this.getDuration(duration);
-        this.options = localOptions;
-        // TODO default to a in memory cache
-        // this.serverCache = null;
-        this.serverCache = new RedisCache(this.options && this.options.redisOptions);
+        const defaultOptions: IMiddlewareOptions = {
+            debug: false,
+            defaultDuration: 3600,
+            enabled: true,
+        };
+        this.options = Object.assign({}, localOptions, defaultOptions);
+
+        this.serverCache = new MemoryCache({});
+        if (this.options && this.options.redisOptions ) {
+            this.serverCache = new RedisCache(this.options.redisOptions);
+        }
         this.middlewareToggle = middlewareToggle;
     }
 
-    public cache = async (req: Request, res: Response, next: NextFunction): Promise<void|Response> => {
+    public cache: MiddlewareCache = async (req: Request, res: Response, next: NextFunction) => {
         if (!this.options.enabled) {
+            console.log('cache not enabled', this.options);
             return next();
         }
         let key = req.originalUrl || req.url;
@@ -53,8 +64,10 @@ export class Middleware {
         }
         const cached = await this.serverCache.get(key);
         if (cached) {
+            console.log('response is cached', cached);
             return this.sendCachedResponse(req, res, next, cached);
         }
+        console.log('caching response ... ', cached);
         return this.cacheResponse(req, res, next, key);
     };
 
@@ -64,24 +77,21 @@ export class Middleware {
         next: NextFunction,
         key: string,
     ) => {
-        res._middlewareApi = {
-            cachable: true,
-            content: undefined,
-            headers: res.getHeaders(),
-            send: res.send,
-            write: res.write,
-            writeHead: res.writeHead,
-        };
+        res.append('cache-control', 'max-age=' + (this.duration).toFixed(0));
+        res._apiSend = res.send;
 
         res.send = (body: any): Response => {
             // if (res._middlewareApi.cachable && res._middlewareApi.content) {
             //     this.serverCache.set(key, body, { ttl: this.duration });
             // }
-            this.serverCache.set(key, JSON.stringify(body), { ttl: this.duration });
-            if (res._middlewareApi) {
-                return res._middlewareApi.send(body);
-            }
-            return res.send(body);
+            const cacheObj = {
+                timestamp: moment.utc().toISOString(),
+                data: JSON.parse(body)
+            };
+            this.serverCache.set(key, JSON.stringify(cacheObj), { ttl: this.duration });
+            return res._apiSend(body);
+
+            // return res.send(body);
         };
         return next();
     };
@@ -95,9 +105,14 @@ export class Middleware {
         if (this.middlewareToggle && !this.middlewareToggle(req, res)) {
             return next();
         }
-        // const headers = res.getHeaders();
-        // res.writeHead(200, headers);
-        return res.send(cachedResponse);
+        const headers = res.getHeaders();
+        console.log('headers', headers);
+        console.log('cachedResponse', typeof cachedResponse, cachedResponse);
+        const { data, timestamp } = Object.assign({}, JSON.parse(cachedResponse) );
+        // calculate the expiration header
+        const maxAge = Math.max(this.duration - moment.utc().diff(moment.utc(timestamp), 'seconds'), 0 );
+        res.append('cache-control', 'max-age=' + (maxAge).toFixed(0));
+        return res.status(200).send(data);
     };
 
     private getDuration: ITransformDuration = (durationStr: string) => {

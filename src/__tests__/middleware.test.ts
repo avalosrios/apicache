@@ -31,9 +31,4 @@ describe('Middleware', () => {
             expect(middleware.serverCache).toBeInstanceOf(ServerCache);
         });
     });
-
-    describe('.cache', () => {
-
-    });
-
 });
