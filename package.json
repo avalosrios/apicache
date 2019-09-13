@@ -23,17 +23,26 @@
     "@types/express": "^4.17.0",
     "@types/ioredis": "^4.0.13",
     "@types/jest": "^24.0.15",
+    "@types/lodash": "^4.14.138",
+    "@types/lru-cache": "^5.1.0",
+    "@types/mockdate": "^2.0.0",
+    "@types/moment": "^2.13.0",
     "@types/node": "^12.6.8",
+    "@types/supertest": "^2.0.8",
     "express": "^4.17.1",
     "ioredis": "^4.11.2",
     "jest": "^24.8.0",
+    "mockdate": "^2.0.5",
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.2",
     "tslint": "^5.18.0",
     "typescript": "^3.5.3"
   },
   "dependencies": {
-    "dataloader": "^1.4.0"
+    "dataloader": "^1.4.0",
+    "lodash": "^4.17.15",
+    "lru-cache": "^5.1.1",
+    "moment": "^2.24.0"
   },
   "peerDependencies": {
     "ioredis": "4.x"

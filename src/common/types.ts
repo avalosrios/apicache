@@ -17,14 +17,7 @@ export interface IMiddlewareOptions {
 }
 
 export interface IMiddlewareResponse extends Response {
-    _middlewareApi?: {
-        cachable: boolean,
-        content: any,
-        headers: OutgoingHttpHeaders,
-        send: Send,
-        write: (chunk: any, encoding: string, cb?: (error: Error | null | undefined) => void) => boolean;
-        writeHead: (statusCode: number, headers?: OutgoingHttpHeaders) => any;
-    };
+    _apiSend?: any;
 }
 
 // TODO remove this
