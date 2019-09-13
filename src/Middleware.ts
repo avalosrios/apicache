@@ -34,8 +34,7 @@ export class Middleware {
 
     constructor(
         duration: string,
-        middlewareToggle?: IMiddlewareToggle,
-        localOptions?: IMiddlewareOptions,
+        options?: IMiddlewareOptions
     ) {
         this.duration = this.getDuration(duration);
         const defaultOptions: IMiddlewareOptions = {
@@ -43,16 +42,17 @@ export class Middleware {
             defaultDuration: 3600,
             enabled: true,
         };
-        this.options = Object.assign({}, localOptions, defaultOptions);
+        this.options = Object.assign({}, defaultOptions, options);
 
         this.serverCache = new MemoryCache({});
         if (this.options && this.options.redisOptions ) {
             this.serverCache = new RedisCache(this.options.redisOptions);
         }
-        this.middlewareToggle = middlewareToggle;
+        this.middlewareToggle = options && options.middlewareToggle;
     }
 
     public cache: MiddlewareCache = async (req: Request, res: Response, next: NextFunction) => {
+        console.log('enabled?', this.options.enabled);
         if (!this.options.enabled) {
             console.log('cache not enabled', this.options);
             return next();
@@ -71,27 +71,44 @@ export class Middleware {
         return this.cacheResponse(req, res, next, key);
     };
 
+    private includeStatusCode = (statuses: Number[], statusNo: Number):boolean => statuses.some( e => e === statusNo);
+
+    private shouldCacheRequest = (req: Request, res: Response): boolean => {
+        const { statusCodes, middlewareToggle } = this.options;
+        if (middlewareToggle) {
+            return middlewareToggle(req, res);
+        }
+        if (statusCodes) {
+            if (statusCodes.exclude) {
+                return !this.includeStatusCode(statusCodes.exclude, res.statusCode);
+            }
+            if (statusCodes.include) {
+                return this.includeStatusCode(statusCodes.include, res.statusCode);
+            }
+        }
+        return true;
+    };
+
     private cacheResponse = (
         req: Request,
         res: IMiddlewareResponse,
         next: NextFunction,
         key: string,
     ) => {
-        res.append('cache-control', 'max-age=' + (this.duration).toFixed(0));
         res._apiSend = res.send;
-
         res.send = (body: any): Response => {
             // if (res._middlewareApi.cachable && res._middlewareApi.content) {
             //     this.serverCache.set(key, body, { ttl: this.duration });
             // }
-            const cacheObj = {
-                timestamp: moment.utc().toISOString(),
-                data: JSON.parse(body)
-            };
-            this.serverCache.set(key, JSON.stringify(cacheObj), { ttl: this.duration });
+            if (this.shouldCacheRequest(req, res)) {
+                res.append('cache-control', 'max-age=' + (this.duration).toFixed(0));
+                const cacheObj = {
+                    timestamp: moment.utc().toISOString(),
+                    data: JSON.parse(body)
+                };
+                this.serverCache.set(key, JSON.stringify(cacheObj), { ttl: this.duration });
+            }
             return res._apiSend(body);
-
-            // return res.send(body);
         };
         return next();
     };

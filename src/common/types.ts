@@ -1,10 +1,11 @@
 import { Request, Response, Send } from 'express';
 import {OutgoingHttpHeaders} from 'http';
 import { RedisOptions } from 'ioredis';
+import {MiddlewareCache} from "../Middleware";
 
 export interface IStatusCodes {
-    include: [];
-    exclude: [];
+    include?: Number[];
+    exclude?: Number[];
 }
 export interface IMiddlewareOptions {
     debug?: boolean;
@@ -14,6 +15,7 @@ export interface IMiddlewareOptions {
     redisOptions?: RedisOptions;
     headers?: any;
     appendKey?: (req: Request, res: Response) => string;
+    middlewareToggle?: IMiddlewareToggle
 }
 
 export interface IMiddlewareResponse extends Response {
@@ -43,3 +45,5 @@ export interface ITimeMap extends IDictionary<number> {
 export type IMiddlewareToggle = (req: any, res: any) => boolean;
 
 export type ITransformDuration = (durationStr: string) => number;
+
+export type MiddlewareApiCache = (duration?: string, options?: IMiddlewareOptions) => MiddlewareCache;
