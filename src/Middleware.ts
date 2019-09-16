@@ -54,7 +54,6 @@ export class Middleware {
     public cache: MiddlewareCache = async (req: Request, res: Response, next: NextFunction) => {
         console.log('enabled?', this.options.enabled);
         if (!this.options.enabled) {
-            console.log('cache not enabled', this.options);
             return next();
         }
         let key = req.originalUrl || req.url;
@@ -124,7 +123,6 @@ export class Middleware {
         }
         const headers = res.getHeaders();
         console.log('headers', headers);
-        console.log('cachedResponse', typeof cachedResponse, cachedResponse);
         const { data, timestamp } = Object.assign({}, JSON.parse(cachedResponse) );
         // calculate the expiration header
         const maxAge = Math.max(this.duration - moment.utc().diff(moment.utc(timestamp), 'seconds'), 0 );

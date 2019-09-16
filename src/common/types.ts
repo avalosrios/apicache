@@ -15,7 +15,9 @@ export interface IMiddlewareOptions {
     redisOptions?: RedisOptions;
     headers?: any;
     appendKey?: (req: Request, res: Response) => string;
-    middlewareToggle?: IMiddlewareToggle
+    middlewareToggle?: IMiddlewareToggle;
+    collectionGroup?: string;
+    expireCollections?: (groupNames: string[]) => void;
 }
 
 export interface IMiddlewareResponse extends Response {

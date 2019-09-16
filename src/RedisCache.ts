@@ -12,9 +12,12 @@ export class RedisCache extends ServerCache<string> {
 
     constructor(options?: RedisOptions) {
         super(options);
-        this.client = new Redis(options);
+        this.client = new Redis(this.cacheOptions);
         // TODO add another loader that allows grouping requests
-        this.loader = new DataLoader( (keys) => this.client.mget(keys), {
+        this.loader = new DataLoader( async (keys) => {
+            const response = await this.client.mget(keys);
+            return response ? response : keys.map( () => null);
+        }, {
             cache: false,
         });
     }
@@ -26,6 +29,7 @@ export class RedisCache extends ServerCache<string> {
     ): Promise<void> {
         const { ttl } = Object.assign({}, this.defaultOptions, options);
         await this.client.set(key, value, 'EX', ttl);
+        return;
     }
 
     public async get(key: string): Promise<string|undefined> {
