@@ -29,6 +29,7 @@
     "@types/moment": "^2.13.0",
     "@types/node": "^12.6.8",
     "@types/supertest": "^2.0.8",
+    "@types/uuid": "^3.4.5",
     "express": "^4.17.1",
     "ioredis": "^4.11.2",
     "jest": "^24.8.0",
@@ -36,7 +37,8 @@
     "supertest": "^4.0.2",
     "ts-jest": "^24.0.2",
     "tslint": "^5.18.0",
-    "typescript": "^3.5.3"
+    "typescript": "^3.5.3",
+    "uuid": "^3.3.3"
   },
   "dependencies": {
     "dataloader": "^1.4.0",

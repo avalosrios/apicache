@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import request from 'supertest';
 import MockDate from 'mockdate';
 import moment, { Moment } from 'moment';
+import uuid from 'uuid/v1';
 import { MiddlewareApiCache} from '../common/types';
 import { MemoryCache } from '../MemoryCache';
 import { RedisCache } from '../RedisCache';
@@ -13,6 +14,7 @@ describe('express integration', () => {
     let memSpy: any;
     let redisSpy: any;
     let now: Moment;
+    let testUid: string;
     beforeEach( () => {
         apiCache = zenrezApiCache;
         jest.useFakeTimers();
@@ -20,6 +22,7 @@ describe('express integration', () => {
         redisSpy = jest.spyOn(RedisCache.prototype, 'set');
         now = moment.utc();
         MockDate.set(now.toDate());
+        testUid = uuid();
     });
     afterEach( () => {
         jest.clearAllMocks();
@@ -34,18 +37,18 @@ describe('express integration', () => {
                 });
             });
             it('caches a route', () => {
-                return request(app).get('/api/collection/1')
+                return request(app).get(`/api/collection/${testUid}`)
                     .expect(200, { foo: 'bar' })
                     .expect('Cache-Control', /max-age/);
             });
             it('returns a decremented max-age header', () => {
-                return request(app).get('/api/collection/1')
+                return request(app).get(`/api/collection/${testUid}`)
                     .expect(200, { foo: 'bar' })
                     .expect('Cache-Control', 'max-age=10')
                     .then( () => {
                         MockDate.set(now.add(1, 'second').toDate());
                         return request(app)
-                            .get('/api/collection/1')
+                            .get(`/api/collection/${testUid}`)
                             .expect(200, { foo: 'bar' })
                             .expect('Cache-Control', 'max-age=9');
                     })
@@ -55,13 +58,13 @@ describe('express integration', () => {
             describe('enabled', () => {
                 beforeEach( () => {
                     app = express();
-                    app.get('/api/collection/1',
+                    app.get('/api/collection/:id',
                         apiCache('10 seconds', { enabled: false }),
                         (req: Request, res: Response) => res.json({ foo: 'bar' })
                     );
                 });
                 it('skips caching when not enabled', () => {
-                    return request(app).get('/api/collection/1')
+                    return request(app).get(`/api/collection/${testUid}`)
                         .expect(200, { foo: 'bar' })
                         .expect((res) => {
                             if (res.header['cache-control']) throw new Error('cache-control header found');
@@ -84,12 +87,12 @@ describe('express integration', () => {
                     );
                 });
                 it('appends a string to the key', () => {
-                    return request(app).get('/api/collection/1')
+                    return request(app).get(`/api/collection/${testUid}`)
                         .expect(200, { foo: 'bar' })
                         .expect('Cache-Control', /max-age/)
                         .then( () => {
                             expect(memSpy).toHaveBeenCalledWith(
-                                '/api/collection/1$$appendKey=GETmyKey',
+                                `/api/collection/${testUid}$$appendKey=GETmyKey`,
                                 JSON.stringify({
                                     timestamp: now.toISOString(),
                                     data: { foo: 'bar' },
@@ -113,7 +116,7 @@ describe('express integration', () => {
                         );
                     });
                     it('caches a request when the status code is in the inclusion list', () => {
-                        return request(app).get('/api/collection/1')
+                        return request(app).get(`/api/collection/${testUid}`)
                             .expect(400, { foo: 'bar' })
                             .expect('Cache-Control', 'max-age=10')
                             .then( () => {
@@ -144,7 +147,7 @@ describe('express integration', () => {
                         );
                     });
                     it('does not caches a request when the status code is in status exclusion list', () => {
-                        return request(app).get('/api/collection/1')
+                        return request(app).get(`/api/collection/${testUid}`)
                             .expect(201, { foo: 'bar' })
                             .expect((res) => {
                                 if (res.header['cache-control']) throw new Error('cache-control header found');
@@ -180,7 +183,7 @@ describe('express integration', () => {
                     );
                 });
                 it('it determines if the response should be cached', () => {
-                    return request(app).get('/api/collection/1')
+                    return request(app).get(`/api/collection/${testUid}`)
                         .expect(200, { foo: 'bar' })
                         .expect('Cache-Control', 'max-age=10')
                         .then( () => {
@@ -219,7 +222,7 @@ describe('express integration', () => {
                     );
                 });
                 it('caches a route', () => {
-                    return request(app).get('/api/collection/1')
+                    return request(app).get(`/api/collection/${testUid}`)
                         .expect(200, { foo: 'bar' })
                         .expect('Cache-Control', /max-age/)
                         .then( () => {
@@ -227,13 +230,13 @@ describe('express integration', () => {
                         });
                 });
                 it('returns a decremented max-age header', () => {
-                    return request(app).get('/api/collection/1')
+                    return request(app).get(`/api/collection/${testUid}`)
                         .expect(200, { foo: 'bar' })
                         .expect('Cache-Control', 'max-age=5')
                         .then( () => {
                             MockDate.set(now.add(1, 'seconds').toDate());
                             return request(app)
-                                .get('/api/collection/1')
+                                .get(`/api/collection/${testUid}`)
                                 .expect(200, { foo: 'bar' })
                                 .expect('Cache-Control', 'max-age=4');
                         });
