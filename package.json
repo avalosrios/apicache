@@ -1,7 +1,7 @@
 {
   "name": "@zenrez/zenrez-apicache",
   "version": "1.0.0",
-  "description": "",
+  "description": "Zenrez apicache",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
