@@ -2,12 +2,16 @@
   "name": "zenrez-apicache",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "test": "jest --verbose --forceExit --detectOpenHandles",
     "lint": "tslint -c tslint.json -p tsconfig.json",
-    "tslint-check": "tslint-config-prettier-check ./tslint.json"
+    "tslint-check": "tslint-config-prettier-check ./tslint.json",
+    "build": "tsc",
+    "prepare": "npm run build"
   },
+  "files": ["lib/**/*"],
   "engines": {
     "node": ">=8"
   },

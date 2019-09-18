@@ -6,4 +6,5 @@
 *.rdb
 .nyc_output
 /dist
+/lib
 coverage

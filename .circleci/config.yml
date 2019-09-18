@@ -1,0 +1,84 @@
+version: 2.1
+defaults: &defaults
+  working_directory: ~/zenrez-apicache
+  docker:
+    - image: circleci/node:10.16.3
+  environment:
+    CI: true
+    CODECOV_TOKEN: b02e1ea0-12d1-431f-b0f8-0381c32cb8d0
+
+orbs:
+  codecov: codecov/codecov@1.0.1
+
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: set npm token
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - restore_cache:
+          key: dependency-cache-v1-{{ checksum "package.json" }}
+      - run:
+          name: install-npm
+          command: npm install
+      - save_cache:
+          key: dependency-cache-v1-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+      - persist_to_workspace:
+          root: ~/zenrez-apicache
+          paths: .
+
+  test:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ~/zenrez-apicache
+      - run:
+          name: Linting
+          command: npm run lint
+      - run:
+          name: Run tests
+          command: npm run test
+      - codecov/upload:
+          file: coverage/*.info
+          flags: unittests
+  deploy:
+    <<: *defaults
+    steps:
+      - attach_workspace:
+          at: ~/zenrez-apicache
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - run:
+          name: Prepare package
+          command: npm run build
+      - run:
+          name: Publish package
+          command: npm publish --unsafe-perm
+
+workflows:
+  version: 2.1
+  build-test-deploy:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - test:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /.*/
+      - deploy:
+          requires:
+            - test
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*/
+            branches:
+              ignore: /.*/
