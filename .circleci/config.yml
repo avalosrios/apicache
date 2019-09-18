@@ -3,6 +3,7 @@ defaults: &defaults
   working_directory: ~/zenrez-apicache
   docker:
     - image: circleci/node:10.16.3
+    - image: circleci/redis:latest
   environment:
     CI: true
     CODECOV_TOKEN: b02e1ea0-12d1-431f-b0f8-0381c32cb8d0
