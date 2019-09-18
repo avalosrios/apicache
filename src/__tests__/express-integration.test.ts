@@ -11,15 +11,17 @@ import { RedisCache } from '../RedisCache';
 describe('express integration', () => {
     let app: any;
     let apiCache: MiddlewareApiCache;
-    let memSpy: any;
+    let memSpySet: any;
     let redisSpy: any;
     let now: Moment;
     let testUid: string;
     beforeEach( () => {
         apiCache = zenrezApiCache;
         jest.useFakeTimers();
-        memSpy = jest.spyOn(MemoryCache.prototype, 'set');
+        memSpySet = jest.spyOn(MemoryCache.prototype, 'set');
+        jest.spyOn(MemoryCache.prototype, 'expireGroup');
         redisSpy = jest.spyOn(RedisCache.prototype, 'set');
+        jest.spyOn(RedisCache.prototype, 'expireGroup');
         now = moment.utc();
         MockDate.set(now.toDate());
         testUid = uuid();
@@ -70,7 +72,7 @@ describe('express integration', () => {
                             if (res.header['cache-control']) throw new Error('cache-control header found');
                         })
                         .then( () => {
-                            expect(memSpy).not.toHaveBeenCalled();
+                            expect(memSpySet).not.toHaveBeenCalled();
                         });
                 })
             });
@@ -91,7 +93,7 @@ describe('express integration', () => {
                         .expect(200, { foo: 'bar' })
                         .expect('Cache-Control', /max-age/)
                         .then( () => {
-                            expect(memSpy).toHaveBeenCalledWith(
+                            expect(memSpySet).toHaveBeenCalledWith(
                                 `/api/collection/${testUid}$$appendKey=GETmyKey`,
                                 JSON.stringify({
                                     timestamp: now.toISOString(),
@@ -120,7 +122,7 @@ describe('express integration', () => {
                             .expect(400, { foo: 'bar' })
                             .expect('Cache-Control', 'max-age=10')
                             .then( () => {
-                                expect(memSpy).toHaveBeenCalled();
+                                expect(memSpySet).toHaveBeenCalled();
                             });
                     });
                     it('does not caches the response when not included', () => {
@@ -130,7 +132,7 @@ describe('express integration', () => {
                                 if (res.header['cache-control']) throw new Error('cache-control header found');
                             })
                             .then( () => {
-                                expect(memSpy).not.toHaveBeenCalled();
+                                expect(memSpySet).not.toHaveBeenCalled();
                             });
                     });
                 });
@@ -153,7 +155,7 @@ describe('express integration', () => {
                                 if (res.header['cache-control']) throw new Error('cache-control header found');
                             })
                             .then( () => {
-                                expect(memSpy).not.toHaveBeenCalled();
+                                expect(memSpySet).not.toHaveBeenCalled();
                             });
                     })
                 });
@@ -188,7 +190,7 @@ describe('express integration', () => {
                         .expect('Cache-Control', 'max-age=10')
                         .then( () => {
                             expect(toggleSpy).toHaveBeenCalled();
-                            expect(memSpy).toHaveBeenCalled();
+                            expect(memSpySet).toHaveBeenCalled();
                         });
                 });
                 it('does not caches the response when it evaluates to false', () => {
@@ -199,7 +201,7 @@ describe('express integration', () => {
                         })
                         .then( () => {
                             expect(toggleSpy).toHaveBeenCalled();
-                            expect(memSpy).not.toHaveBeenCalled();
+                            expect(memSpySet).not.toHaveBeenCalled();
                         });
                 });
             });
@@ -212,7 +214,7 @@ describe('express integration', () => {
                             {
                                 redisOptions: {
                                     port: 6379, // Redis port
-                                    host: "localhost", // Redis host
+                                    host: 'localhost', // Redis host
                                 }
                             }
                         ),
@@ -242,8 +244,133 @@ describe('express integration', () => {
                         });
                 });
             });
-            describe.skip('grouping', () => {
+            describe('grouping', () => {
+                beforeEach( () => {
+                    app = express();
+                    app.get('/api/collection/:id',
+                        apiCache(
+                            '5 seconds',
+                            {
+                                collectionGroup: 'myCollection'
+                            }
+                        ),
+                        (req: Request, res: Response) => {
+                            res.json({ foo: 'bar' });
+                        }
+                    );
+                    app.get('/api/anotherCollection/:id',
+                        apiCache('5 seconds' ),
+                        (req: Request, res: Response) => {
+                            res.json({ bar: 'baz' });
+                        }
+                    );
+                    app.post('/api/clear/myCollection',
+                        apiCache(undefined, {
+                            expireCollections: ['myCollection']
+                        }),
+                        (req: Request, res: Response) => {
+                            res.json({ clear: true });
+                        }
+                    );
+                });
+                it('caches a route', () => {
+                    return request(app).get(`/api/collection/${testUid}`)
+                        .expect(200, { foo: 'bar' })
+                        .expect('Cache-Control', /max-age/);
+                });
+                it('expires only collections by group name', () => {
+                    return request(app).get(`/api/collection/${testUid}`)
+                        .expect(200, { foo: 'bar' })
+                        .expect('Cache-Control', 'max-age=5')
+                        .then( () => {
+                            return request(app).get(`/api/anotherCollection/${testUid}`)
+                                .expect(200, { bar: 'baz' })
+                                .expect('Cache-Control', 'max-age=5');
+                        })
+                        .then( () => {
+                           return request(app).post('/api/clear/myCollection')
+                               .expect(200, { clear: true })
+                               .then( () => {
+                                   expect(MemoryCache.prototype.expireGroup).toHaveBeenCalled();
+                               });
+                        })
+                        .then( () => {
+                            return request(app).get(`/api/anotherCollection/${testUid}`)
+                                .expect(200, { bar: 'baz' })
+                                .then( () => {
+                                    expect(memSpySet).toBeCalledTimes(2);
+                                });
+                        });
+                });
 
+                describe('with redis options', () => {
+                    beforeEach( () => {
+                        app.get('/api/redis/:id',
+                            apiCache(
+                                '5 seconds',
+                                {
+                                    redisOptions: {
+                                        port: 6379, // Redis port
+                                        host: 'localhost', // Redis host
+                                    },
+                                    collectionGroup: 'myRedisCollection'
+                                }
+                            ),
+                            (req: Request, res: Response) => {
+                                res.json({ redis: 'bar' });
+                            }
+                        );
+                        app.get('/api/anotherRedisCollection/:id',
+                            apiCache('5 seconds',
+                                {
+                                    redisOptions: {
+                                        port: 6379, // Redis port
+                                        host: 'localhost', // Redis host
+                                    },
+                                }
+                            ),
+                            (req: Request, res: Response) => {
+                                res.json({ bar: 'baz' });
+                            }
+                        );
+                        app.post('/api/clear/myRedisCollection',
+                            apiCache(undefined, {
+                                redisOptions: {
+                                    port: 6379, // Redis port
+                                    host: 'localhost', // Redis host
+                                },
+                                expireCollections: ['myRedisCollection']
+                            }),
+                            (req: Request, res: Response) => {
+                                res.json({ clear: true });
+                            }
+                        );
+                    });
+                    it('expires only collections by group name', () => {
+                        return request(app).get(`/api/redis/${testUid}`)
+                            .expect(200, { redis: 'bar' })
+                            .expect('Cache-Control', 'max-age=5')
+                            .then( () => {
+                                return request(app).get(`/api/anotherRedisCollection/${testUid}`)
+                                    .expect(200, { bar: 'baz' })
+                                    .expect('Cache-Control', 'max-age=5');
+                            })
+                            .then( () => {
+                                return request(app).post('/api/clear/myRedisCollection')
+                                    .expect(200, { clear: true })
+                                    .then( () => {
+                                        expect(RedisCache.prototype.expireGroup).toHaveBeenCalled();
+                                    });
+                            })
+                            .then( () => {
+                                return request(app).get(`/api/anotherRedisCollection/${testUid}`)
+                                    .expect(200, { bar: 'baz' })
+                                    .then( () => {
+                                        expect(redisSpy).toBeCalledTimes(2);
+                                    });
+                            });
+                    });
+                });
             });
         });
     });

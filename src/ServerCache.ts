@@ -1,7 +1,9 @@
 export abstract class ServerCache<V = string> {
     public cacheOptions: any;
-    constructor(options: any) {
+    public groupPrefix: string;
+    constructor(options: any = {}) {
         this.cacheOptions = options;
+        this.groupPrefix = options.groupPrefix || '';
     }
     public abstract set(
         key: string,
@@ -17,7 +19,14 @@ export abstract class ServerCache<V = string> {
         key: string,
     ): Promise<boolean>;
 
+    // removes all keys using the options.keyPrefix
+    public abstract expireGroup(groupName?: string): Promise<void>;
+
     public abstract flush(): Promise<void>;
 
     public abstract close(): Promise<void>;
+
+    protected addKeyPrefix(key:string): string {
+        return `${this.groupPrefix}${key}`;
+    }
 }

@@ -34,7 +34,7 @@ describe('MemoryCache', () => {
     });
     describe('with key prefix', () => {
         beforeEach( () => {
-            cache = new MemoryCache({ keyPrefix: 'test:' });
+            cache = new MemoryCache({ groupPrefix: 'test:' });
         });
         it('can set and get', async () => {
             await cache.set('mykey', 'myvalue');
@@ -50,6 +50,27 @@ describe('MemoryCache', () => {
             expect(value).toBe(undefined);
             expect(LRUCache.prototype.set).toHaveBeenCalledWith('test:mykey', 'myvalue', 3600);
             expect(LRUCache.prototype.del).toHaveBeenCalledWith('test:mykey');
+        });
+    });
+    describe('expiring a group prefix', () => {
+        it('does not remove any key if no prefix is set', async () => {
+            cache =  new MemoryCache({});
+            await cache.set('dontDeleteMe', 'myvalue');
+            await cache.expireGroup();
+            const value = await cache.get('dontDeleteMe');
+            expect(value).toBe('myvalue');
+        });
+        describe('with a key prefix', () => {
+            beforeEach( async () => {
+                cache = new MemoryCache({ groupPrefix: 'group:' });
+            });
+            it('removes all keys with prefix', async () => {
+                await cache.set('deleteMe1', 'myvalue');
+                await cache.set('deleteMe2', 'myvalue');
+                await cache.expireGroup();
+                const value = await cache.get('deleteMe1');
+                expect(value).toBeFalsy();
+            });
         });
     });
 });

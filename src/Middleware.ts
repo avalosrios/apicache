@@ -10,7 +10,7 @@ import {
     ITransformDuration,
 } from './common/types';
 import { RedisCache } from './RedisCache';
-import { MemoryCache } from './MemoryCache';
+import MemoryCacheClient from './MemoryCacheClient';
 import { ServerCache } from './ServerCache';
 import  moment from 'moment';
 
@@ -20,7 +20,7 @@ export class Middleware {
     public serverCache: ServerCache;
     public duration: number;
     public middlewareToggle: IMiddlewareToggle | undefined;
-    public options: any;
+    public options: IMiddlewareOptions;
     private DEFAULT_DURATION: number = 3600;
     private TIME_MAP: ITimeMap = {
         second:       1,
@@ -44,9 +44,13 @@ export class Middleware {
         };
         this.options = Object.assign({}, defaultOptions, options);
 
-        this.serverCache = new MemoryCache({});
+        this.serverCache = MemoryCacheClient;
+        this.serverCache.groupPrefix = this.options.collectionGroup || '';
         if (this.options && this.options.redisOptions ) {
-            this.serverCache = new RedisCache(this.options.redisOptions);
+            this.serverCache = new RedisCache({
+                ... this.options.redisOptions,
+                ... this.options.collectionGroup && { groupPrefix: this.options.collectionGroup }
+            });
         }
         this.middlewareToggle = options && options.middlewareToggle;
     }
@@ -61,6 +65,13 @@ export class Middleware {
         if (this.options.appendKey) {
             key += '$$appendKey=' + this.options.appendKey(req, res);
         }
+        if (this.expireCacheGroups(this.options)) {
+            const groupNames = this.options.expireCollections || [this.serverCache.groupPrefix];
+            await Promise.all(
+                groupNames.map((groupName:string) => this.serverCache.expireGroup(groupName))
+            );
+            return next();
+        }
         const cached = await this.serverCache.get(key);
         if (cached) {
             console.log('response is cached', cached);
@@ -72,7 +83,14 @@ export class Middleware {
 
     private includeStatusCode = (statuses: Number[], statusNo: Number):boolean => statuses.some( e => e === statusNo);
 
-    private shouldCacheRequest = (req: Request, res: Response): boolean => {
+    private expireCacheGroups = (cacheOptions: IMiddlewareOptions): boolean => {
+        if (cacheOptions.expireCollections) {
+            return cacheOptions.expireCollections.length > 0;
+        }
+        return false;
+    };
+
+    private shouldCacheSendRequest = (req: Request, res: Response): boolean => {
         const { statusCodes, middlewareToggle } = this.options;
         if (middlewareToggle) {
             return middlewareToggle(req, res);
@@ -99,7 +117,7 @@ export class Middleware {
             // if (res._middlewareApi.cachable && res._middlewareApi.content) {
             //     this.serverCache.set(key, body, { ttl: this.duration });
             // }
-            if (this.shouldCacheRequest(req, res)) {
+            if (this.shouldCacheSendRequest(req, res)) {
                 res.append('cache-control', 'max-age=' + (this.duration).toFixed(0));
                 const cacheObj = {
                     timestamp: moment.utc().toISOString(),

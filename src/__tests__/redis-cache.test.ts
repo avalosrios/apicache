@@ -37,12 +37,12 @@ describe('RedisCache', () => {
         });
         describe('with prefixes', () => {
             beforeEach(async () => {
-                cache = new RedisCache({ keyPrefix: 'test:' });
+                cache = new RedisCache({ groupPrefix: 'test:' });
             });
             it('sets a key using the prefix', async () => {
                 await cache.set('mykey', 'myvalue');
                 expect(Redis.prototype.set).toHaveBeenCalledWith(
-                    'mykey',
+                    'test:mykey',
                     'myvalue',
                     'EX',
                     3600
@@ -70,7 +70,7 @@ describe('RedisCache', () => {
         });
         describe('with prefix', () => {
             beforeEach( async () => {
-                cache = new RedisCache({ keyPrefix: 'test:' });
+                cache = new RedisCache({ groupPrefix: 'test:' });
                 await cache.set('mykey1', 'myvalue');
             });
             afterEach( async () => {
@@ -79,7 +79,29 @@ describe('RedisCache', () => {
             it('gets a key using a prefix', async () => {
                 const res = await cache.get('mykey1');
                 expect(res).toBe('myvalue');
-                expect(Redis.prototype.mget).toHaveBeenCalledWith(['mykey1']);
+                expect(Redis.prototype.mget).toHaveBeenCalledWith(['test:mykey1']);
+            });
+        })
+    });
+
+    describe('.expireGroup', () => {
+        it('does not remove any key if no prefix is set', async () => {
+            cache = new RedisCache({});
+            await cache.set('dontDeleteMe', 'myvalue');
+            await cache.expireGroup();
+            const value = await cache.get('dontDeleteMe');
+            expect(value).toBe('myvalue');
+        });
+        describe('with a key prefix', () => {
+            beforeEach( () => {
+                cache = new RedisCache({ groupPrefix: 'group:' })
+            });
+            it('removes all keys with prefix', async () => {
+                await cache.set('deleteMe1', 'myvalue');
+                await cache.set('deleteMe2', 'myvalue');
+                await cache.expireGroup();
+                const value = await cache.get('deleteMe1');
+                expect(value).toBeFalsy();
             });
         })
     });

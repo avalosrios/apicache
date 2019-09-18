@@ -17,7 +17,7 @@ export interface IMiddlewareOptions {
     appendKey?: (req: Request, res: Response) => string;
     middlewareToggle?: IMiddlewareToggle;
     collectionGroup?: string;
-    expireCollections?: (groupNames: string[]) => void;
+    expireCollections?: string[];
 }
 
 export interface IMiddlewareResponse extends Response {

@@ -5,7 +5,7 @@ import { isObjectLike } from 'lodash';
 export interface MemoryCacheOptions {
     maxSize?: number;
     length?: (value: any, key: string) => number;
-    keyPrefix?: string;
+    groupPrefix?: string;
 }
 
 function defaultLengthCalculation(item: any) {
@@ -26,11 +26,9 @@ function isJSON(str:string): boolean {
 
 export class MemoryCache extends ServerCache<string> {
     public readonly client: LRUCache<string, any>;
-    private keyPrefix: string;
 
-    constructor({ maxSize = Infinity, length = defaultLengthCalculation, keyPrefix = '' }: MemoryCacheOptions) {
-        super({ maxSize, length });
-        this.keyPrefix = keyPrefix;
+    constructor({ maxSize = Infinity, length = defaultLengthCalculation, groupPrefix = '' }: MemoryCacheOptions) {
+        super({ maxSize, length, groupPrefix });
         this.client = new LRUCache({
             max: maxSize,
             length
@@ -64,6 +62,22 @@ export class MemoryCache extends ServerCache<string> {
         return Promise.resolve(true);
     }
 
+    // removes all keys using the keyPrefix which should equal to the group
+    expireGroup(groupName?: string): Promise<void> {
+        const expireGroup = this.groupPrefix || groupName;
+        console.log('expire group', expireGroup);
+        if (expireGroup) {
+            const groupRegexp = new RegExp(`^${expireGroup}`);
+            this.client.keys().forEach( (key:string) => {
+                if (groupRegexp.test(key)) {
+                    console.log('deleting', key);
+                    this.client.del(key);
+                }
+            });
+        }
+        return Promise.resolve();
+    }
+
     flush(): Promise<void> {
         this.client.reset();
         return Promise.resolve();
@@ -71,9 +85,5 @@ export class MemoryCache extends ServerCache<string> {
 
     close(): Promise<void> {
         return Promise.resolve();
-    }
-
-    private addKeyPrefix(key:string): string {
-        return `${this.keyPrefix}${key}`;
     }
 }
