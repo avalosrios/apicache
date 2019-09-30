@@ -34,13 +34,17 @@ export class Middleware {
     const defaultOptions: IMiddlewareOptions = { debug: false, defaultDuration: 3600, enabled: true };
     this.options = Object.assign({}, defaultOptions, options);
 
+    if (this.options.debug) {
+      process.env.DEBUG = 'apicache';
+    }
+
     this.serverCache = MemoryCacheClient;
-    this.serverCache.groupPrefix = this.options.collectionGroup || '';
+    this.serverCache.groupPrefix = '';
     if (this.options && this.options.redisOptions) {
       this.serverCache = new RedisCache({
         ...this.options.redisOptions,
         ...(this.options.collectionGroup && {
-          groupPrefix: this.options.collectionGroup,
+          groupPrefix: '',
         }),
       });
     }
@@ -52,30 +56,36 @@ export class Middleware {
       return next();
     }
     let key = req.originalUrl || req.url;
+    // Evaluate and set the prefix fn
+    if (this.options.collectionGroup) {
+      this.serverCache.setGroupPrefix(this.options.collectionGroup(req));
+    } else {
+      this.serverCache.setGroupPrefix('');
+    }
 
     if (this.options.appendKey) {
       key += '$$appendKey=' + this.options.appendKey(req, res);
     }
-    if (this.expireCacheGroups(this.options)) {
-      const groupNames = this.options.expireCollections || [this.serverCache.groupPrefix];
+    if (this.expireCacheGroups(this.options, req)) {
+      const groupNames = (this.options.expireCollections && this.options.expireCollections(req)) || [
+        this.serverCache.groupPrefix,
+      ];
       await Promise.all(groupNames.map((groupName: string) => this.serverCache.expireGroup(groupName)));
       return next();
     }
     const cached = await this.serverCache.get(key);
     if (cached) {
-      // console.log('response is cached', cached);
       return this.sendCachedResponse(req, res, next, cached);
     }
-    // console.log('caching response ... ', cached);
     return this.cacheResponse(req, res, next, key);
   };
 
   private includeStatusCode = (statuses: number[], statusNo: number): boolean =>
     statuses.some((e: number) => e === statusNo);
 
-  private expireCacheGroups = (cacheOptions: IMiddlewareOptions): boolean => {
+  private expireCacheGroups = (cacheOptions: IMiddlewareOptions, req: Request): boolean => {
     if (cacheOptions.expireCollections) {
-      return cacheOptions.expireCollections.length > 0;
+      return cacheOptions.expireCollections(req).length > 0;
     }
     return false;
   };
@@ -112,6 +122,7 @@ export class Middleware {
           ttl: this.duration,
         });
       }
+      // console.log('cached', key, body);
       return res._apiSend(body);
     };
     return next();

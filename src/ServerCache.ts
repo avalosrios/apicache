@@ -18,7 +18,11 @@ export abstract class ServerCache<V = string> {
 
   public abstract close(): Promise<void>;
 
-  protected addKeyPrefix(key: string): string {
+  public setGroupPrefix = (prefix: string) => {
+    this.groupPrefix = prefix;
+  };
+
+  protected addKeyPrefix = (key: string): string => {
     return `${this.groupPrefix}${key}`;
-  }
+  };
 }

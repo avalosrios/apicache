@@ -271,7 +271,7 @@ describe('express integration', () => {
           app.get(
             '/api/collection/:id',
             apiCache('5 seconds', {
-              collectionGroup: 'myCollection',
+              collectionGroup: () => 'myCollection',
             }),
             (req: Request, res: Response) => {
               res.json({ foo: 'bar' });
@@ -283,7 +283,8 @@ describe('express integration', () => {
           app.post(
             '/api/clear/myCollection',
             apiCache(undefined, {
-              expireCollections: ['myCollection'],
+              debug: true,
+              expireCollections: () => ['myCollection'],
             }),
             (req: Request, res: Response) => {
               res.json({ clear: true });
@@ -330,7 +331,7 @@ describe('express integration', () => {
             app.get(
               '/api/redis/:id',
               apiCache('5 seconds', {
-                collectionGroup: 'myRedisCollection',
+                collectionGroup: () => 'myRedisCollection',
                 redisOptions: {
                   host: 'localhost', // Redis host
                   port: 6379, // Redis port
@@ -355,7 +356,7 @@ describe('express integration', () => {
             app.post(
               '/api/clear/myRedisCollection',
               apiCache(undefined, {
-                expireCollections: ['myRedisCollection'],
+                expireCollections: () => ['myRedisCollection'],
                 redisOptions: {
                   host: 'localhost', // Redis host
                   port: 6379, // Redis port
