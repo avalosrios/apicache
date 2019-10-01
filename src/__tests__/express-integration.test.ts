@@ -290,6 +290,16 @@ describe('express integration', () => {
               res.json({ clear: true });
             }
           );
+          app.post(
+            '/api/collection/myCollectionPath',
+            apiCache(undefined, {
+              debug: true,
+              expireCollections: () => ['/api/anotherCollection'],
+            }),
+            (req: Request, res: Response) => {
+              res.json({ clearPath: true });
+            }
+          );
         });
         it('caches a route', () => {
           return request(app)
@@ -322,6 +332,35 @@ describe('express integration', () => {
                 .expect(200, { bar: 'baz' })
                 .then(() => {
                   expect(memSpySet).toBeCalledTimes(2);
+                });
+            });
+        });
+        it('expires only collections that match the prefix route as group name', () => {
+          return request(app)
+            .get(`/api/collection/${testUid}`)
+            .expect(200, { foo: 'bar' })
+            .expect('Cache-Control', 'max-age=5')
+            .then(() => {
+              return request(app)
+                .get(`/api/anotherCollection/${testUid}`)
+                .expect(200, { bar: 'baz' })
+                .expect('Cache-Control', 'max-age=5');
+            })
+            .then(() => {
+              return request(app)
+                .post('/api/collection/myCollectionPath')
+                .expect(200, { clearPath: true })
+                .then(() => {
+                  expect(MemoryCache.prototype.expireGroup).toHaveBeenCalled();
+                });
+            })
+            .then(() => {
+              return request(app)
+                .get(`/api/anotherCollection/${testUid}`)
+                .expect(200, { bar: 'baz' })
+                .expect('Cache-Control', 'max-age=5')
+                .then(() => {
+                  expect(memSpySet).toBeCalledTimes(3);
                 });
             });
         });
