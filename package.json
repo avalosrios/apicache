@@ -1,6 +1,6 @@
 {
   "name": "@zenrez/zenrez-apicache",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Zenrez apicache",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
