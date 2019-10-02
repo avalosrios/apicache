@@ -18,7 +18,7 @@ export abstract class ServerCache<V = string> {
 
   public abstract close(): Promise<void>;
 
-  public setGroupPrefix = (prefix: string) => {
+  public setGroupPrefix = (prefix: string): void => {
     this.groupPrefix = prefix;
   };
 

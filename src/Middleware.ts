@@ -8,7 +8,7 @@ import {
   ITransformDuration,
 } from './common/types';
 import MemoryCacheClient from './MemoryCacheClient';
-import { RedisCache } from './RedisCache';
+import { RedisCacheClient } from './RedisCacheClient';
 import { ServerCache } from './ServerCache';
 
 export type MiddlewareCache = (req: Request, res: Response, next: NextFunction) => Promise<void | Response>;
@@ -41,12 +41,9 @@ export class Middleware {
     this.serverCache = MemoryCacheClient;
     this.serverCache.groupPrefix = '';
     if (this.options && this.options.redisOptions) {
-      this.serverCache = new RedisCache({
+      this.serverCache = new RedisCacheClient({
         ...this.options.redisOptions,
-        ...(this.options.collectionGroup && {
-          groupPrefix: '',
-        }),
-      });
+      }).getClient();
     }
     this.middlewareToggle = options && options.middlewareToggle;
   }
