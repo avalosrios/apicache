@@ -7,10 +7,6 @@
 
 Middleware library to cache express api routes. Inspired on [apicache](https://github.com/kwhitley/apicache/tree/49ecb08c184fe28c65ca7d7738bde427722c55a6).
 
-# Install
-
-`npm install --save @zenrez/zenrez-apicache`
-
 ## Usage
 
 TODO
