@@ -1,5 +1,5 @@
 import { isObjectLike } from 'lodash';
-import LRUCache from 'lru-cache';
+import { LRUCache } from 'lru-cache';
 import { ServerCache } from './ServerCache';
 
 export interface IMemoryCacheOptions {
@@ -29,18 +29,27 @@ export class MemoryCache extends ServerCache<string> {
 
   constructor({ maxSize = Infinity, length = defaultLengthCalculation, groupPrefix = '' }: IMemoryCacheOptions) {
     super({ maxSize, length, groupPrefix });
+    // At least one of 'max', 'ttl', or 'maxSize' is required, to prevent
+    // unsafe unbounded storage.
+    //
+    // In most cases, it's best to specify a max for performance, so all
+    // the required memory allocation is done up-front.
     this.client = new LRUCache({
-      length,
-      max: maxSize,
+      maxSize: maxSize,
+      sizeCalculation: length,
+      ttl: 1000 * 60 * 5,
+      allowStale: false,
+      updateAgeOnGet: false,
+      updateAgeOnHas: false,
     });
   }
 
   public set(key: string, value: string, options?: { ttl?: number }): Promise<void> {
     const maxAge = options && options.ttl && options.ttl * 1000;
     if (isJSON(value)) {
-      this.client.set(this.addKeyPrefix(key), JSON.parse(value), maxAge || 3600);
+      this.client.set(this.addKeyPrefix(key), JSON.parse(value), { ttl: maxAge || 3600 });
     } else {
-      this.client.set(this.addKeyPrefix(key), value, maxAge || 3600);
+      this.client.set(this.addKeyPrefix(key), value, { ttl: maxAge || 3600 });
     }
     return Promise.resolve();
   }
@@ -54,7 +63,7 @@ export class MemoryCache extends ServerCache<string> {
   }
 
   public delete(key: string): Promise<boolean> {
-    this.client.del(this.addKeyPrefix(key));
+    this.client.delete(this.addKeyPrefix(key));
     return Promise.resolve(true);
   }
 
@@ -64,10 +73,10 @@ export class MemoryCache extends ServerCache<string> {
     // console.log('expire group', expireGroup);
     if (expireGroup) {
       const groupRegexp = new RegExp(`^${expireGroup}`);
-      this.client.keys().forEach((key: string) => {
+      Array.from(this.client.keys()).forEach((key: string) => {
         if (groupRegexp.test(key)) {
           // console.log('deleting', key);
-          this.client.del(key);
+          this.client.delete(key);
         }
       });
     }
@@ -75,7 +84,7 @@ export class MemoryCache extends ServerCache<string> {
   }
 
   public flush(): Promise<void> {
-    this.client.reset();
+    this.client.clear();
     return Promise.resolve();
   }
 
