@@ -1,14 +1,11 @@
-# Zenrez-apicache
-[![CircleCI](https://circleci.com/gh/Zenrez/zenrez-apicache/tree/master.svg?style=svg&circle-token=fe9bc11f9a36ac9f214fb7edb60166ab7400e6d7)](https://circleci.com/gh/Zenrez/zenrez-apicache/tree/master)
+# Apicache
 [![codecov](https://codecov.io/gh/Zenrez/zenrez-apicache/branch/master/graph/badge.svg?token=kxUOuwrUtQ)](https://codecov.io/gh/Zenrez/zenrez-apicache)
 
 
 ## Overview
-
 Middleware library to cache express api routes. Inspired on [apicache](https://github.com/kwhitley/apicache/tree/49ecb08c184fe28c65ca7d7738bde427722c55a6).
 
 ## Usage
-
 TODO
 
 ## Contributing
